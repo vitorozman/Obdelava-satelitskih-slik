@@ -1,0 +1,458 @@
+---
+title: "Seminarska naloga pri predmetu ITAP"
+author: Žiga Lukšič, Sinergise, prevedel v R Ljupčo Todorovski
+output: html_notebook
+---
+
+```{r}
+# Za risanje grafov in delo s podatkovnimi tabelami
+require(tidyverse)
+# Za branje numpy datotek in delo z numpy polji (arrays)
+require(reticulate)
+np = import("numpy")
+# Za izrisovanje RGB slik
+require(grid)
+# Za sestavljanje grafov
+require(gridExtra)
+require(dplyr)
+require(ggplot2)
+```
+
+
+# Pregled podatkov
+
+Seminarska naloga v okviru predmeta ITAP predstavlja (poenostavljen) problem obdelave satelitskih slik. Izziv je pripravljen v sodelovanju s podjetjem [Sinergise](https://www.sinergise.com), ki se ukvarja s procesiranjem in analizo satelitskih podatkov.
+
+
+Problem zaobsega več izzivov, katere boste morali rešiti z znanjem, ki ste ga pridobili pri predmetu.
+- Velika količina podatkov
+- Prisotnost šuma
+- Veliko število značilk
+- Neuravnoteženost referenčnih podatkov
+
+## Pridobivanje satelitskih slik
+
+Podatki za seminarsko nalogo so bili pridobljeni s satelitoma [Sentinel 2](https://sentinel.esa.int/web/sentinel/missions/sentinel-2) ([wiki](https://en.wikipedia.org/wiki/Sentinel-2)), ki delujeta pod okriljem agencije **ESA**.
+
+Satelita delujeta v paru in omogočata zajetje slik na približno 3-5 dni (odvisno od geografske lege). Pri zajemu slik se obravnava 13 valovnih dolžin. Vse slike potrebujejo atmosferske korekcije, ki jih opravi že ESA, popravljeni podatki pa vsebujejo informacije za [12 valovnih dolžin](https://docs.sentinel-hub.com/api/latest/data/sentinel-2-l2a/#available-bands-and-data).
+
+Resolucija slik je 10m x 10m na piksel. Senzorji za nekatere valovne dolžine imajo slabšo resolucijo, vendar jih v seminarski nalogi obravnavamo identično.
+
+## Predobdelava
+
+Poleg atmosferskih korekcij, ki jih opravi ESA, imajo satelitske slike še dve dodatni pomanjklivosti pri strojnem učenju.
+
+1. Razlike v času zajema slike. Če območje pade v različne dele obhoda satelitov imajo lahko slike nekajdnevni zamik. Kjer se obhodi satelitov prekrivajo imajo območja na voljo več slik.
+2. Oblaki. Naravni sovražnik vseh ljubiteljev (optičnih) satelitskih podatkov. V nekaterih primerih nam otežijo pridobivanje informacij za več mesecev.
+
+Fokus seminarske naloge je strojno učenje in ne priprava podatkov, zato so vam na voljo podatki, ki so že delno obdelani s strani Sinergise.
+
+#### Hiter opis
+
+1. S servisa [Sentinel-Hub](https://sentinel-hub.com) se pridobi podatke za celotno leto 2019 (ter še nekaj mesecev na vsaki strani časovnega intervala). Na podatkih je že razvidno katera območja pokrivajo, in ob katerem datumu je narejena slika.
+2. Izvede se detekcija oblakov z `s2-cloudless` [algoritmom](https://github.com/sentinel-hub/sentinel2-cloud-detector) ([medium blog](https://medium.com/sentinel-hub/cloud-masks-at-your-service-6e5b2cb2ce8a) za radovedne).
+3. Določijo se "zaželeni" datumi slik, v našem primeru prvi dan vsakega meseca.
+4. Za vsak zaželen datum se s pomočjo linearne interpolacije (časovno) sosednih slik določi vrednost za vsak piksel posebej. Pri tem se izločijo deli, ki vsebujejo oblake (če je del slike oblačen, se vzame (časovno) naslednja slika za interpolacijo).  
+
+S takšno predobdelavo imamo sedaj za vsako točko na voljo vrednosti v 12ih časovnih točkah. Detekcija oblakov in interpolacija sta zahtevni tehniki, tako da imajo podatki določeno količino šuma in nepravilnosti.
+
+
+#### Dodatne značilke
+
+Na področju analize satelitskih slik se pogosto uporablja t.i. *Normalized Difference Index*, ki se izkažejo kot 'informacijsko bogati'. Morda najpogostejši primer je [NDVI](https://en.wikipedia.org/wiki/Normalized_difference_vegetation_index) oz. *normalized difference vegetation index*, ki se uporablja za prepoznavanje rastlinja. Kako izgleda NDVI si lahko ogledate [tukaj](https://apps.sentinel-hub.com/eo-browser/?zoom=13&lat=46.04911&lng=14.46865&themeId=DEFAULT-THEME&visualizationUrl=https%3A%2F%2Fservices.sentinel-hub.com%2Fogc%2Fwms%2Fbd86bcc0-f318-402b-a145-015f85b9427e&datasetId=S2L2A&fromTime=2022-04-10T00%3A00%3A00.000Z&toTime=2022-04-10T23%3A59%3A59.999Z&layerId=3_NDVI).
+
+Takšne značilke so pogosto koristne za napovedne modele, zato sta poleg NDVI v podatkih vključena še NDWI ("water index" za vodo) in NDBI ("built-up index" za stavbe).
+
+## Opis podatkov
+
+Podatki opisujejo 25 podobmočij velikosti 3km x 3km območja severno od Ljubljane. Območja tvorijo 5x5 mrežo in so urejena od spodaj navzgor in od leve proti desni.
+
+Za območja imate na voljo datoteki `data.npy`, ki vsebuje satelitske podatke, in `reference.npy`, ki vsebuje referenčne podatke. Referenčni podatki za območja `0,5,10,15,20,21,22,23,24` vam niso na voljo, saj se bodo uporabljali za validacijo vaših rešitev.
+
+```{r fig.height=5, fig.width=5}
+VALIDATION_ONLY = c(0, 5, 10, 15, 20, 21, 22, 23, 24)
+regions = expand.grid(
+  i = 4:0,
+  j = 0:4
+) %>%
+  mutate(
+    n = i + 5 * j,
+    label = ifelse(
+      n %in% VALIDATION_ONLY,
+      sprintf("data_%d", n),
+      sprintf("data_%d\nreference_%d", n, n)
+    ),
+    y = i + 0.5,
+    x = j + 0.5,
+    color = ifelse(
+      n %in% VALIDATION_ONLY,
+      "validation",
+      "train"
+    )
+  )
+regions %>%
+  ggplot(
+    mapping = aes(
+      x = x, y = y, label = label, color = color
+    )
+  ) +
+  geom_text(size = 2.5) +
+  geom_vline(xintercept = 0:5) +
+  geom_hline(yintercept = 0:5) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_color_manual(
+    breaks = c("train", "validation"),
+    values = c("black", "purple"),
+    guide = "none"
+  ) +
+  coord_fixed() +
+  theme_void()
+```
+
+
+### Datoteke `data_i.npy`
+
+Vsaka datoteka vsebuje 300x300 pikslov, ki so urejeni po vrsticah.
+
+Vsak piksel vsebuje 15 vrednosti pri 12ih datumih:
+- 12 valovnih dolžin B01 - B12
+- izpeljane značilke NDVI, NDWI, NDBI
+
+Skupno je torej za vsak piksel na voljo 180 značilk, kjer prvih 15 značilk predstavlja valovne dolžine (in NDI) 1. Januarja, drugih 15 značilk predstavlja valovne dolžine 1. Februarja itd.
+
+Vseh pikslov z referencami je 1.440.000, podatkov za validacijo pa 810.000. Ne pozabite da niso vsi modeli primerni za delo z veliko količino podatkov ali veliko količino značilk. Seveda lahko podatke predhodno poljubno filtrirate in preoblikujete.
+
+
+### Datoteke `reference_i.npy`
+
+Kot že omenjeno, za nekatera območja `reference` datoteke niso na voljo, saj bodo uporabljene za validacijo. Podobno kot pri `data_i.npy` datoteke `reference_i.npy` vsebujejo 300x300 pikslov, urejenih po vrsticah. Tokrat vsakemu pikslu pripada zgolj ena vrednost, ki označuje vrsto pokrova območja, ki ga piksel pokriva.
+
+Kategorije so:
+- No Data = 0
+- Cultivated Land = 1
+- Forest = 2
+- Grassland = 3
+- Shrubland = 4
+- Water = 5
+- Wetlands = 6
+- Tundra = 7
+- Artificial Surface = 8
+- Bareland = 9
+- Snow and Ice = 10
+
+## Prikaz podatkov
+
+```{r}
+WIDTH = 300; HEIGHT = 300
+TIME = 12; FEATURES = 15
+INPUT_FOLDER = file.path(".", "podatki")  # pot do mape s podatki
+# Datoteke vsebujejo 90.000 vrstic in 180 (data.npy) ali 1 (reference.npy) stolpec.
+# Za grafični prikaz je lažje, če obliko spremenimo v 300x300, pri podatkih pa še 180 stolpcev pretvorimo v 12x15
+# Pretvori 2D podatke v 4D prikaz.
+data_to_4D = function(
+  data,
+  height = HEIGHT, width = WIDTH,
+  time = TIME, features = FEATURES
+) {
+  array_reshape(data, c(height, width, time, features))
+}
+# Pri referenci zgolj spremenimo 90.000x1 obliko v 300x300 obliko
+# Pretvori referenčne podatke v obliko primerno za prikazovanje.
+reshape_reference = function(
+  ref,
+  height = HEIGHT, width = WIDTH
+) {
+  array_reshape(ref, c(height, width))
+}
+# Naložimo eno datoteko
+data = np$load(
+  file.path(INPUT_FOLDER, "data_4.npy")
+)
+dim(data)
+```
+
+Za izris je najlažje, če tabelo pretvorimo v 4D obliko.
+
+```{r fig.height=1, fig.width=1}
+# S pretvorbo dobimo naslednje štiri indekse:
+# 1. vrstica
+# 2. stolpec
+# 3. mesec
+# 4. valovna dolžina (oz. NDI)
+data_4d = data_to_4D(data)
+data_rgb = data_4d[, , 9, 4:2]
+grid.raster(data_rgb, interpolate = FALSE)
+```
+
+Zgornja slika je rahlo temna, pogosto se za vizualizacijo uporablja faktor 3.5:
+
+```{r fig.height=1, fig.width=1}
+intensify = function(data_rgb, factor = 3.5) {
+  
+  data_rgb_i = array(dim = dim(data_rgb))
+  for (i in 1:dim(data_rgb)[1]) {
+    for (j in 1:dim(data_rgb)[2]) {
+      for (k in 1:dim(data_rgb)[3]) {
+        data_rgb_i[i, j, k] = min(data_rgb[i, j, k] * factor, 1)
+      }
+    }
+  }
+  data_rgb_i
+}
+grid.raster(intensify(data_rgb), interpolate = FALSE)
+```
+
+Kot vidite na sliki, se je oblaček izmuznil predobdelavi! Prav tako na vodni površini opazimo šum, ki je posledica časovne interpolacije. Kot pri vseh realnih problemih je v podatkih (kljub predobdelavi) šum.
+
+Oglejmo si še referenčne podatke
+
+```{r fig.height=1, fig.width=1}
+ref = np$load(
+  file.path(INPUT_FOLDER, "reference_4.npy")
+)
+ref_data = reshape_reference(ref)
+ref_rgb_gs = ref_data / max(ref_data)
+grid.raster(ref_rgb_gs, interpolate = FALSE)
+```
+
+Oglejmo si referenco v bolj 'standardnih' barvah
+
+```{r fig.height=1, fig.width=1}
+REF_COLORS = c(
+  "#ffffff",  # No Data
+  "#ffff00",  # Cultivated Land
+  "#054907",  # Forest
+  "#ffa500",  # Grassland
+  "#806000",  # Shrubland
+  "#069af3",  # Water
+  "#95d0fc",  # Wetlands
+  "#967bb6",  # Tundra
+  "#dc143c",  # Artificial Surface
+  "#a6a6a6",  # Bareland
+  "#000000"  # Snow and Ice
+)
+ref2rgb = function(ref_data, ref_colors = REF_COLORS) {
+  
+  ref_rgb = array(dim = c(dim(ref_data), 3))
+  for (i in 1:dim(ref_data)[1]) {
+    for (j in 1:dim(ref_data)[2]) {
+      ref_rgb[i, j, ] = ref_colors[ref_data[i, j] + 1] %>%
+        col2rgb() / 255 %>%
+        as.vector()
+    }
+  }
+  ref_rgb
+}
+grid.raster(ref2rgb(ref_data), interpolate = FALSE)
+```
+
+Narišimo na koncu obe sliki skupaj
+
+```{r fig.height=1, fig.width=2}
+g1 = rasterGrob(intensify(data_rgb), interpolate = FALSE)
+g2 = rasterGrob(ref2rgb(ref_data), interpolate = FALSE)
+grid.arrange(g1, g2, nrow = 1)
+```
+
+## Prikaz celotnega območja
+
+```{r fig.height=5, fig.width=5}
+MONTH = 5 # izberemo mesec maj
+k = 1
+grobs = list()
+for (i in 4:0) {
+  for (j in 0:4) {
+    n = i + 5 * j
+    data = np$load(file.path(
+      INPUT_FOLDER,
+      sprintf("data_%d.npy", n)
+    ))
+    data_4d = data_to_4D(data)
+    data_rgb = data_4d[, , MONTH, 4:2]
+    grobs[[k]] = rasterGrob(intensify(data_rgb), interpolate = FALSE)
+    k = k + 1
+  }
+}
+grobs[["ncol"]] = 5
+do.call("grid.arrange", grobs)
+```
+
+```{r fig.height=5, fig.width=5}
+empty_img = function(height = HEIGHT, width = WIDTH) {
+  
+  array(0.0, dim = c(height, width)) %>%
+    np$array() %>%
+    reshape_reference()
+}
+k = 1
+grobs = list()
+for (i in 4:0) {
+  for (j in 0:4) {
+    n = i + 5 * j
+    if (n %in% VALIDATION_ONLY) {
+      grobs[[k]] = rasterGrob(ref2rgb(empty_img()))
+    } else {
+      ref_data = np$load(file.path(
+        INPUT_FOLDER,
+        sprintf("reference_%d.npy", n)
+      )) %>%
+        reshape_reference()
+      grobs[[k]] = rasterGrob(ref2rgb(ref_data), interpolate = FALSE)
+    }
+    k = k + 1
+  }
+}
+grobs[["ncol"]] = 5
+do.call("grid.arrange", grobs)
+```
+
+### Opomba!
+
+V območju se nahaja tudi Letališče Jožeta Pučnika. Če si pozorno ogledate zgornja prikaza območja, je področje letališča označeno z rdečo (torej pozidano območje), vendar pa je primarno pokrito s travo, kar lahko 'zmede' vaš model.
+
+Takšni zapleti so pogosti pri uporabi realnih podatkov, zato je vedno priporočljivo temeljito pregledati podatke, ki so vam na voljo. Tako lahko odkrijete problematične podatke in prilagodite pristop.
+
+
+## Minimalni prikaz strojnega učenja
+
+Model bomo naučili iz zgolj dveh območij, saj delamo minimalen primer, namenjen prikazu priprave podatkovnih množic za učenje in validacijo.
+
+```{r}
+FEATURE_NAMES = c(
+  "B01", "B02", "B03", "B04",
+  "B05", "B06", "B07", "B08",
+  "B8A", "B9", "B11", "B12",
+  "NDVI", "NDWI", "NDBI"
+)
+TIME_POINTS = c(
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+)
+VAR_NAMES = expand.grid(
+  fn = FEATURE_NAMES,
+  ts = TIME_POINTS
+) %>%
+  mutate(
+    vn = paste0(fn, ".", ts)
+  ) %>%
+  getElement("vn")
+area_of_interest = c(7, 8)
+arrays = list()
+references = list()
+k = 1
+for (n in area_of_interest) {
+  arrays[[k]] = np$load(file.path(
+    INPUT_FOLDER,
+    sprintf("data_%d.npy", n)
+  ))
+  references[[k]] = np$load(file.path(
+    INPUT_FOLDER,
+    sprintf("reference_%d.npy", n)
+  ))
+  k = k + 1
+}
+train_data = np$concatenate(arrays) %>% as.matrix() %>% as.data.frame()
+colnames(train_data) = VAR_NAMES
+train_data$ref = np$concatenate(references) %>% as.vector() %>% as.factor() # Morda bi bilo pametno odstraniti vrstice z No Data?
+```
+
+Naučimo se modela.
+
+```{r}
+require(rpart)
+# Potrebuje par minut
+model = rpart(ref ~ ., data = train_data)
+```
+
+Testirajmo na novem območju.
+
+```{r}
+test_array = np$load(file.path(INPUT_FOLDER, "data_11.npy"))
+test_ref = np$load(file.path(INPUT_FOLDER, "reference_11.npy"))
+test_data = test_array %>% as.matrix() %>% as.data.frame()
+names(test_data) = VAR_NAMES
+test_data$ref = test_ref %>% as.vector()
+predictions = predict(model, test_data, type = "class") %>% as.integer()
+```
+
+Oglejmo si rezultate.
+
+```{r fig.height=1, fig.width=3}
+test_4d = data_to_4D(test_array)
+test_rgb = test_4d[, , 9, 4:2]
+g0 = rasterGrob(intensify(test_rgb), interpolate = FALSE)
+g1 = rasterGrob(ref2rgb(reshape_reference(predictions)), interpolate = FALSE)
+g2 = rasterGrob(ref2rgb(reshape_reference(test_data$ref)), interpolate = FALSE)
+grid.arrange(g0, g1, g2, nrow = 1)
+```
+
+Napovedi nato preprosto shranimo. Shranjeni naj bodo za vsak blok posebej (za lažje testiranje).
+
+```{r}
+np$save("napovedi_11.npy", predictions)
+```
+
+
+## Primer funkcije za zmanjševanje podatkov
+
+Naprednejši del naloge zahteva predobdelavo podatkov.
+
+Funkcija mora za vsak piksel, za vsako časovno točko, prebolikovati vseh 12+3 podatkov in NDI v nove značilke.
+
+Funkcija sprejme seznam dolžine 15 (tipa `np.ndarray`) in vrne nov seznam (tipa `np.ndarray`)
+
+```{r}
+# V tem primeru obdržimo zgolj RGB kanale, NDI vrednosti, vse ostale valovne dolžine pa seštejemo.
+apply_reduction = function(input_array) {
+  tibble_array = input_array %>%
+    array_reshape(c(nrow(input_array) * TIME, FEATURES)) %>%
+    as_tibble()
+  names(tibble_array) = FEATURE_NAMES
+  tibble_array %>%
+    mutate(
+      sum_of_rest = B01 + B05 + B06 + B07 + B08 + B8A + B9 + B11 + B12
+    ) %>%
+    select(
+      B02, B03, B04, NDVI, NDWI, NDBI, sum_of_rest
+    ) %>%
+    as.matrix() %>%
+    array_reshape(c(nrow(input_array), 7 * TIME))
+}
+```
+
+#### Hitri test
+
+```{r}
+reduced_test_array = apply_reduction(test_array)
+dim(reduced_test_array)  # preverimo, da je smiselne oblike. Pričakujemo 7*12 stolpcev.
+```
+
+Preverimo da RGB ostane enak.
+
+```{r fig.height=1, fig.width=1}
+reduced_test_4d = data_to_4D(reduced_test_array, features = 7)
+reduced_test_rgb = reduced_test_4d[, , 9, 3:1]
+grid.raster(intensify(reduced_test_rgb), interpolate = FALSE)
+```
+
+Pripravimo množico za učenje ali validacijo.
+
+```{r}
+NEW_FEATURE_NAMES = c(
+  "B02", "B03", "B04",
+  "NDVI", "NDWI", "NDBI",
+  "sum_of_rest"
+)
+NEW_VAR_NAMES = expand.grid(
+  fn = NEW_FEATURE_NAMES,
+  ts = TIME_POINTS
+) %>%
+  mutate(
+    vn = paste0(fn, ".", ts)
+  ) %>%
+  getElement("vn")
+reduced_test_data = reduced_test_array %>% as.matrix() %>% as.data.frame()
+names(reduced_test_data) = NEW_VAR_NAMES
+reduced_test_data$ref = test_ref %>% as.vector()
+```
