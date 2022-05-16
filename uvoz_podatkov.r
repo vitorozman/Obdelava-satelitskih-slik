@@ -93,7 +93,7 @@ for(k in 1:n){
 }
 
 plot(1:length(acc), acc, xlab = "sprem. z najvecjo var do najmanjse", 
-     ylab = "Natancnost na podlagi cv z (0.75 data)",
+     ylab = "Natancnost na podlagi cv vseh podatkov",
      main = "Vpliv varjance")
 
 
