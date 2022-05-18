@@ -9,6 +9,7 @@ output: html_notebook
 require(tidyverse)
 # Za branje numpy datotek in delo z numpy polji (arrays)
 require(reticulate)
+#use_python(pot do pytho.exe)
 np = import("numpy")
 # Za izrisovanje RGB slik
 require(grid)
