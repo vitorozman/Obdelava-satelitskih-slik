@@ -30,7 +30,7 @@ VAR_NAMES = expand.grid(
     vn = paste0(fn, ".", ts)
   ) %>%
   getElement("vn")
-area_of_interest = c(3)
+area_of_interest = c(1:4, 6:9, 11:14, 16:19)
 arrays = list()
 references = list()
 k = 1
@@ -49,25 +49,45 @@ podatki = np$concatenate(arrays) %>% as.matrix() %>% as.data.frame()
 colnames(podatki) = VAR_NAMES
 podatki$ref = np$concatenate(references) %>% as.vector() 
 
-podatki$ref[podatki$ref != 2] <- 0
-podatki$ref[podatki$ref == 2] <- 1
+podatki$ref[podatki$ref != 2] <- "N"
+podatki$ref[podatki$ref == 2] <- "Y"
 podatki$ref <- as.factor(podatki$ref)
+podatki <- podatki %>% drop_na() # ce je slucajno kaksen NA
 summary(podatki)
 
+# vzel 10% vseh podatkov iz območja z referenco
+indeks_obdelava <- createDataPartition(podatki$ref, p=0.1, list=FALSE)
 
-ctrl = trainControl(method = "cv",
-                    savePredictions = TRUE)
-var(ucna$B01.FEB)
-summary(podatki)
+# podatki na katerih bom zmanšal stevilo napovednih sprem.
+podatki_01 <- podatki[indeks_obdelava,]
+#
 
-varjance <- data.frame(VAR_NAMES)
-n <- length(VAR_NAMES)
-varjance$VAR <- c(1:n)
-for (i in 1:n){
-  varjance[i,2] <- var(podatki[,i])  
-}
 
-varjance <- varjance[order(varjance$VAR,decreasing = TRUE),]
+
+
+
+
+
+
+
+
+
+
+
+
+#ctrl = trainControl(method = "cv",
+#                    savePredictions = TRUE)
+#var(ucna$B01.FEB)
+#summary(podatki)
+#
+#varjance <- data.frame(VAR_NAMES)
+#n <- length(VAR_NAMES)
+#varjance$VAR <- c(1:n)
+#for (i in 1:n){
+#  varjance[i,2] <- var(podatki[,i])  
+#}
+#
+#varjance <- varjance[order(varjance$VAR,decreasing = TRUE),]
 
 #podatkiX = podatki[varjance[1:20,1]!= 'ref']
 #podatkiY = podatki$ref
@@ -81,20 +101,20 @@ varjance <- varjance[order(varjance$VAR,decreasing = TRUE),]
 #ucna <- podatki[i,]
 #testna <- podatki[-i,]
 
-acc <- c()
-for(k in 1:n){
-  imena <- varjance[1:k,1]
-  podatkiX = podatki[imena]
-  podatkiY = podatki$ref
-  model <- train(podatkiX, podatkiY,
-                 method='rpart', 
-                 trControl=ctrl)
-  acc <- c(acc, max(model$results$Accuracy))
-}
-
-plot(1:length(acc), acc, xlab = "sprem. z najvecjo var do najmanjse", 
-     ylab = "Natancnost na podlagi cv vseh podatkov",
-     main = "Vpliv varjance")
+#acc <- c()
+#for(k in 1:n){
+#  imena <- varjance[1:k,1]
+#  podatkiX = podatki[imena]
+#  podatkiY = podatki$ref
+#  model <- train(podatkiX, podatkiY,
+#                 method='rpart', 
+#                 trControl=ctrl)
+#  acc <- c(acc, max(model$results$Accuracy))
+#}
+#
+#plot(1:length(acc), acc, xlab = "sprem. z najvecjo var do najmanjse", 
+#     ylab = "Natancnost na podlagi cv vseh podatkov",
+#     main = "Vpliv varjance")
 
 
 
