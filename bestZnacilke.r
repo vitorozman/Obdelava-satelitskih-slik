@@ -41,7 +41,7 @@ library(FSelector)
 
 ucna <- podatki_01[ucnaInd,]
 testna <- podatki_01[-ucnaInd,]
-rlf <- relief(ref ~ ., data=ucna[1:10000,])
+#rlf <- relief(ref ~ ., data=ucna)
 #
 
 #  ACC modelov
@@ -57,34 +57,56 @@ for (i in 1:length(varRang)){
   Tree_natacnostVar <- c(Tree_natacnostVar, mean(pred == testna$ref))
 }
 
-
+glm_natacnostVar <- c()
 for (i in 1:length(varRang)){
   variancaFormula <- as.simple.formula(names(varRang[1:i]), "ref")
-  model <- train(ref~., data=ucna,
+  model <- train(variancaFormula, data=ucna,
                     method = "glm",
                     trControl = trainControl(method="cv", number=5))
   pred <- predict(model, newdata=testna)
   cat("\n Natancnost pri izbranih", i, " spremenljivk je", mean(pred == testna$ref))
-  natacnostVar <- c(natacnostVar, mean(pred == testna$ref))
+  glm_natacnostVar <- c(glm_natacnostVar, mean(pred == testna$ref))
 }
 
 
+knn_natacnostVar <- c()
+for (i in 1:50){
+  variancaFormula <- as.simple.formula(names(varRang[1:i]), "ref")
+  model <- train(variancaFormula, data=ucna,
+                 method = "knn",
+                 trControl = trainControl(method="cv", number=5),
+                 tuneGrid = data.frame(k=1:30))
+  pred <- predict(model, newdata=testna)
+  cat("\n Natancnost pri izbranih", i, " spremenljivk je", mean(pred == testna$ref))
+  knn_natacnostVar <- c(knn_natacnostVar, mean(pred == testna$ref))
+  if (mean(pred == testna$ref) > 0.97){
+    break
+  }
+}
 
+
+#plot(1:length(Tree_natacnostVar), Tree_natacnostVar, 
+#     xlab = "Znacilke z najvecjo var do najmanjse", 
+#     ylab = "Natancnost na testni mnozici",
+#     main = "Vpliv varjance Tree")
+
+#plot(1:length(glm_natacnostVar), glm_natacnostVar, 
+#     xlab = "Znacilke z najvecjo var do najmanjse", 
+#     ylab = "Natancnost na testni mnozici",
+#     main = "Vpliv varjance glm")
+
+
+#plot(1:length(knn_natacnostVar), knn_natacnostVar, 
+#     xlab = "Znacilke z najvecjo var do najmanjse", 
+#     ylab = "Natancnost na testni mnozici",
+#     main = "Vpliv varjance knn")
 
 
 # importance random-forest
-modelRF <- train(ucnaX, ucnaY, method='rf', trControl = trainControl(method="cv", number=10))
+modelRF <- train(ucnaX, ucnaY, 
+                 method='rf', 
+                 trControl = trainControl(method = "cv",
+                                          classProbs = TRUE,
+                                          savePredictions = TRUE))
 modelRF$finalModel$importancee
-
-
-modelKnn <- train(ref~., data=ucna[names(varRang[1:20])],
-                  method = "knn",
-                  trControl = trainControl(method="cv", number=5),
-                  tuneGrid = data.frame(k=1:30))
-
-pred <- predict(modelknn, newdata=testna[names(varRang[1:20])])
-cat("\n Natancnost pri izbranih", mean(pred == testna$ref))
-
-
-
 
