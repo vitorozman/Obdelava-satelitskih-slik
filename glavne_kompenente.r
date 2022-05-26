@@ -28,13 +28,13 @@ model = train(ref ~ ., data=ucna,
               tuneGrid = data.frame(cp=0.001*c(1:5)),
               trControl = trainControl(method="cv", number=5))
 pred = predict(model, newdata=testna)
-cat(" Natancnost z vsemi spremenljivkami: ", mean(pred == testna$V65))
+cat(" Natancnost z vsemi spremenljivkami: ", mean(pred == testna$ref))
 model = train(x = ucna_PC, y = ucna$ref, 
               method="rpart", 
               tuneGrid = data.frame(cp=0.001*c(1:5)),
               trControl = trainControl(method="cv", number=5))
-pred = predict(model, newdata=testna_PC)
-cat(" Natancnost z metodo glavnih komponent: ", mean(pred == testna$V65))
+pred = predict(model, newdata=testna_PS)
+cat(" Natancnost z metodo glavnih komponent: ", mean(pred == testna$ref))
 
 # se drugre nelinerane metode za krcenje raseznosti
 #- t-SNE
