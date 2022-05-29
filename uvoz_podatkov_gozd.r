@@ -56,7 +56,7 @@ podatki <- podatki %>% drop_na() # ce je slucajno kaksen NA
 summary(podatki)
 
 # vzel 10% vseh podatkov iz območja z referenco
-indeks_obdelava <- createDataPartition(podatki$ref, p=0.1, list=FALSE)
+indeks_obdelava <- createDataPartition(podatki$ref, p=0.01, list=FALSE)
 
 # podatki na katerih bom zmanšal stevilo napovednih sprem.
 podatki_01 <- podatki[indeks_obdelava,]
