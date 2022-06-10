@@ -18,6 +18,9 @@ testnaX = podatki_01[-ucnaInd, -181]
 ucnaY = podatki_01[ucnaInd, 181]
 testnaY = podatki_01[-ucnaInd, 181]
 
+ucna <- podatki_01[ucnaInd,]
+testna <- podatki_01[-ucnaInd,]
+
 # Varjanca
 vars <- diag(var(ucnaX))
 varRang <- sort(vars, decreasing = T)
@@ -39,10 +42,14 @@ plot(statRang)
 
 # Relief
 library(FSelector)
-ucna <- podatki_01[ucnaInd,]
-testna <- podatki_01[-ucnaInd,]
 rlf <- relief(ref ~ ., data=ucna)
-# 10 sprem je dovolj
+df <- data.frame(rlf)
+rlfRnag <- sort(t(df), index.return=T, decreasing=T)
+imena <- c(names(ucna))
+top5rlf <- imena[rlfRnag$ix[1:5]]
+# 10 sprem je ok
+
+
 
 
 # importance random-forest
@@ -142,9 +149,8 @@ top10imp <- imena[imporfRnag$ix[1:10]]
 
 ################################################################################################
 ################################################################################################
-
-
 #  ACC modelov import RF
+
 #Tree_natacnostImp <- c()
 #for (i in 1:100){
 #  imena <- c(names(ucna) )
@@ -188,11 +194,9 @@ top10imp <- imena[imporfRnag$ix[1:10]]
 
 ##################################################################################
 ##################################################################################
-
 # ACC modelov RELIEF
-#df <- data.frame(rlf)
-#rlfRnag <- sort(t(df), index.return=T, decreasing=T)
-## 10 sprem je ok
+
+
 #
 #Tree_natacnostRfe <- c()
 #for (i in 1:100){
@@ -255,8 +259,9 @@ top10imp <- imena[imporfRnag$ix[1:10]]
 
 #######################################################################################
 #######################################################################################
-
 # ACC modelov t-test statistika
+
+
 #Tree_natacnostStat <- c()
 #for (i in 1:100){
 #  variancaFormula <- as.simple.formula(names(statRang[1:i]), "ref")

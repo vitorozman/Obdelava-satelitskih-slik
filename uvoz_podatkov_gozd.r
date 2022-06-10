@@ -53,68 +53,31 @@ podatki$ref[podatki$ref != 2] <- "N"
 podatki$ref[podatki$ref == 2] <- "Y"
 podatki$ref <- as.factor(podatki$ref)
 podatki <- podatki %>% drop_na() # ce je slucajno kaksen NA
-summary(podatki)
+
 
 # vzel 10% vseh podatkov iz območja z referenco
-indeks_obdelava <- createDataPartition(podatki$ref, p=0.01, list=FALSE)
+#indeks_obdelava <- createDataPartition(podatki$ref, p=0.01, list=FALSE)
 
 # podatki na katerih bom zmanšal stevilo napovednih sprem.
-podatki_01 <- podatki[indeks_obdelava,]
-#
+#podatki_01 <- podatki[indeks_obdelava,]
 
 
+# za napoved bom vzel vec vrstic
+# za napoved bom vzel vec vrstic
+#ind_10 <- createDataPartition(podatki$ref, p=0.1, list=FALSE)
+#podatki_10 <- podatki[ind_10,]
+#ind_15 <- createDataPartition(podatki$ref, p=0.15, list=FALSE)
+#podatki_15 <- podatki[ind_15,]
 
+ind_20 <- createDataPartition(podatki$ref, p=0.2, list=FALSE)
+podatki_20 <- podatki[ind_20,]
 
+#ind_50 <- createDataPartition(podatki$ref, p=0.5, list=FALSE)
+#podatki_50 <- podatki[ind_50,]
 
+#ind_70 <- createDataPartition(podatki$ref, p=0.7, list=FALSE)
+#podatki_70 <- podatki[ind_70,]
 
-
-
-
-
-
-
-
-
-#ctrl = trainControl(method = "cv",
-#                    savePredictions = TRUE)
-#var(ucna$B01.FEB)
-#summary(podatki)
-#
-#varjance <- data.frame(VAR_NAMES)
-#n <- length(VAR_NAMES)
-#varjance$VAR <- c(1:n)
-#for (i in 1:n){
-#  varjance[i,2] <- var(podatki[,i])  
-#}
-#
-#varjance <- varjance[order(varjance$VAR,decreasing = TRUE),]
-
-#podatkiX = podatki[varjance[1:20,1]!= 'ref']
-#podatkiY = podatki$ref
-
-#modelTree <- train(podatkiX, podatkiY,
-#                   method='rpart', 
-#                   trControl=ctrl)
-#
-
-#i <- createDataPartition(podatki$ref, p=0.75, list=FALSE)
-#ucna <- podatki[i,]
-#testna <- podatki[-i,]
-
-#acc <- c()
-#for(k in 1:n){
-#  imena <- varjance[1:k,1]
-#  podatkiX = podatki[imena]
-#  podatkiY = podatki$ref
-#  model <- train(podatkiX, podatkiY,
-#                 method='rpart', 
-#                 trControl=ctrl)
-#  acc <- c(acc, max(model$results$Accuracy))
-#}
-#
-#plot(1:length(acc), acc, xlab = "sprem. z najvecjo var do najmanjse", 
-#     ylab = "Natancnost na podlagi cv vseh podatkov",
-#     main = "Vpliv varjance")
 
 
 
