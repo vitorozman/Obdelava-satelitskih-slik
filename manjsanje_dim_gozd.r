@@ -1,4 +1,6 @@
-# prvo je potrebno zagnati uvoz_podatkov_pozidano.r da dobimo zmansano mnozico
+
+
+# prvo je potrebno zagnati uvoz_podatkov_gozd.r da dobimo zmansano mnozico
 # podatki_01 so podatki na katerih bom operiral
 
 require(tidyverse)
@@ -8,14 +10,15 @@ require(dplyr)
 require(ggplot2)
 require(rpart)
 library(caret)
+
 library(FSelector)
 library(doParallel)
 
-# za hitrost
+#hitrost
 cl <- makePSOCKcluster(4)
 registerDoParallel(cl)
 
-# ucna in testna
+# Ucna testna
 ucnaInd = createDataPartition(podatki_01$ref, p=0.75, list=FALSE)
 ucnaX = podatki_01[ucnaInd, -181]
 testnaX = podatki_01[-ucnaInd, -181]
@@ -25,12 +28,12 @@ testnaY = podatki_01[-ucnaInd, 181]
 ucna <- podatki_01[ucnaInd,]
 testna <- podatki_01[-ucnaInd,]
 
-
 ########################################################################
 # Varjanca
 #########################################################################
 vars <- diag(var(ucnaX))
 varRang <- sort(vars, decreasing = T)
+
 
 
 
@@ -42,12 +45,13 @@ pvrednost <- c()
 for (i in 1:length(ucnaX)){
   ttest <- t.test(ucnaX[ucnaY == "N", i], ucnaX[ucnaY == "Y", i])
   statistika <- c(statistika, ttest$statistic) 
-  pvrednost <- c(pvrednost, ttest$p.value)
+  
 }
+
 names(statistika) <- names(ucnaX)
 names(pvrednost) <- names(ucnaX)
 statRang <- sort(statistika, decreasing = T)
-pvredRang <- sort(pvrednost, decreasing = F)
+
 
 
 
@@ -64,9 +68,6 @@ imena <- c(names(ucna))
 
 
 
-
-
-
 #########################################################################
 # Importance random-forest
 #########################################################################
@@ -74,13 +75,13 @@ modelRF <- train(ucnaX, ucnaY,
                  method='rf', 
                  trControl = trainControl(method = "cv",
                                           classProbs = TRUE,
-                                          savePredictions = TRUE),
+                                          savePredictions = TRUE,
+                                          number=10),
                  ntree=100)
+modelRF
+pred <- predict(modelRF, testnaX)
+mean(pred == testnaY)
 imporfRnag <- sort(modelRF$finalModel$importance, index.return=T, decreasing=T)
-
-
-
-
 
 
 #################################################################################
@@ -98,15 +99,13 @@ for (i in 1:30){
   cat("\n Natancnost pri izbranih", i, " spremenljivk je", mean(pred == testna$ref))
   natacnostVAR <- c(natacnostVAR, mean(pred == testna$ref))
 }
-# sranimo sliko
-png("grafi/pozidano/varRF.png", width = 620, height = 620, units = "px")
+# shrani sliko
+png("grafi/gozd/varRF.png", width = 620, height = 620, units = "px")
 plot(1:length(natacnostVAR), natacnostVAR, 
      xlab = "Znacilke z najvecjo var do najmanjse", 
      ylab = "Natancnost na testni mnozici",
      main = "Vpliv varjance RF")
 dev.off()
-
-
 
 
 
@@ -126,8 +125,8 @@ for (i in 1:30){
   cat("\n Natancnost pri izbranih", i, " spremenljivk je", mean(pred == testna$ref))
   natacnostIMP <- c(natacnostIMP, mean(pred == testna$ref))
 }
-# sranimo sliko
-png("grafi/pozidano/impRF.png", width = 620, height = 620, units = "px")
+# shrani sliko
+png("grafi/gozd/impRF.png", width = 620, height = 620, units = "px")
 plot(1:length(natacnostIMP), natacnostIMP, 
      xlab = "Znacilke z najvecjo imp do najmanjse", 
      ylab = "Natancnost na testni mnozici",
@@ -155,8 +154,8 @@ for (i in 1:30){
   cat("\n Natancnost pri izbranih", i, " spremenljivk je", mean(pred == testna$ref))
   natacnostREL <- c(natacnostREL, mean(pred == testna$ref))
 }
-# sranimo sliko
-png("grafi/pozidano/relRF.png", width = 620, height = 620, units = "px")
+# shrani sliko
+png("grafi/gozd/relRF.png", width = 620, height = 620, units = "px")
 plot(1:length(natacnostREL), natacnostREL, 
      xlab = "Znacilke z najvecjo relief do najmanjse", 
      ylab = "Natancnost na testni mnozici",
@@ -185,8 +184,8 @@ for (i in 1:30){
   cat("\n Natancnost pri izbranih", i, " spremenljivk je", mean(pred == testna$ref))
   natacnostTTEST_stat <- c(natacnostTTEST_stat, mean(pred == testna$ref))
 }
-# sranimo sliko
-png("grafi/pozidano/ttestRF.png", width = 620, height = 620, units = "px")
+# shrani sliko
+png("grafi/gozd/ttestRF.png", width = 620, height = 620, units = "px")
 plot(1:length(natacnostTTEST_stat), natacnostTTEST_stat, 
      xlab = "Znacilke z najvecjo stat-ttest do najmanjse", 
      ylab = "Natancnost na testni mnozici",
@@ -194,41 +193,18 @@ plot(1:length(natacnostTTEST_stat), natacnostTTEST_stat,
 dev.off()
 
 
-
-
-##################################################################################
-# Acc modelv t-test p vrednost
-##################################################################################
-natacnostTTEST_p <- c()
-for (i in 1:30){
-  model <- train(ucnaX[names(pvredRang[1:i])], ucnaY, 
-                 method='rf', 
-                 trControl = trainControl(method = "cv",
-                                          number=10),
-                 ntree=100)
-  pred <- predict(model, newdata=testna)
-  cat("\n Natancnost pri izbranih", i, " spremenljivk je", mean(pred == testna$ref))
-  natacnostTTEST_p <- c(natacnostTTEST_p, mean(pred == testna$ref))
-}
-# sranimo sliko
-png("grafi/pozidano/p_ttestRF.png", width = 620, height = 620, units = "px")
-plot(1:length(natacnostTTEST_p), natacnostTTEST_p, 
-     xlab = "Znacilke z najvecjo pvrednost-ttest do najmanjse", 
-     ylab = "Natancnost na testni mnozici",
-     main = "Vpliv ttets p-vrednost RF")
-dev.off()
-
-
-
 stopCluster(cl)
 
+
+
 ########################################################################################
-# Najbolsi kriterij mansanja -> statistika t-test
+# Najbolsi kriterij mansanja -> relief
 #######################################################################################
 
-names(statRang[1:15])
-#"NDVI.MAR" "NDVI.SEP" "NDVI.AUG" "NDVI.APR" "NDVI.JAN" "NDVI.JUL" "NDVI.DEC" "NDVI.OCT" "NDVI.MAY" "NDVI.FEB" "NDVI.NOV" "NDVI.JUN" "B9.JUL"   "B8A.JUL"
-# NDVI , B09, B8A
+imena[rlfRnag$ix][1:12] #acc > 0.97
+
+#"NDWI.FEB" "NDBI.JUN" "NDVI.JUN" "B02.FEB"  "NDBI.NOV" "B03.FEB"  "B12.FEB"  "NDVI.MAY" "B08.APR"  "NDBI.FEB" "NDBI.DEC" "NDBI.JAN"
+# NDWI, NDBI, NDVI, B02, B03, B12, B08
 
 
 

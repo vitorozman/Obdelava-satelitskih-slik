@@ -1,71 +1,58 @@
+
+# potrebno pognati uvoz_podatkov_pozidano.r 
+
+
 require(tidyverse)
 require(grid)
-
 require(gridExtra)
 require(dplyr)
 require(ggplot2)
-
 require(rpart)
 library(caret)
+library(doParallel)
 
 
-
-
-# za rasiriti stevilo pozitivnih
-#ucnaUp = upSample(ucna[, -181], ucna$ref, yname="ref")
-
+# Ucna in testna mnozica
 ucnaInd = createDataPartition(podatki_01$ref, p=0.75, list=FALSE)
 ucna <- podatki_01[ucnaInd,]
 testna <- podatki_01[-ucnaInd,]
+# podvzorcenje
 ucnaDown <- downSample(ucna[, -181], ucna$ref, yname="ref")
-#summary(ucna)
-#summary(ucnaDown)
 
 ucnaX = podatki_01[ucnaInd, -181]
 testnaX = podatki_01[-ucnaInd, -181]
 ucnaY = podatki_01[ucnaInd, 181]
 testnaY = podatki_01[-ucnaInd, 181]
 
-
-
-library(doParallel)
-
-
-
+# za malo hitrejse racunanje
 cl <- makePSOCKcluster(4)
-
 registerDoParallel(cl)
 
+
+################################################################################
+# Down Tree
+################################################################################
 modelTreeD <- train(ref ~., data=ucnaDown, 
               method="rpart", 
               tuneGrid = data.frame(cp=0.0001*c(1:100)),
               trControl = trainControl(method="cv", number=10))
-stopCluster(cl)
-
-
 pred <- predict(modelTreeD, newdata=testna)
 cat("\n Natancnost pri izbranih", mean(pred == testna$ref))
 cf <- confusionMatrix(pred, testna$ref, positive = "Y")
 # 0.9121978
 modelTreeD
 
-cf$byClass
 
 
 
 
 
-
-
-cl <- makePSOCKcluster(4)
-
-registerDoParallel(cl)
-
-
+################################################################################
+# Down GLM
+################################################################################
 modelGlmD <- train(ref~., data=ucnaDown,
                   method = "glm",
                   trControl = trainControl(method="cv", number=10))
-stopCluster(cl)
 pred <- predict(modelGlmD, newdata=testna)
 cat("\n Natancnost pri izbranih", mean(pred == testna$ref))
 confusionMatrix(pred, testna$ref, positive = "Y")
@@ -78,17 +65,33 @@ confusionMatrix(pred, testna$ref, positive = "Y")
 
 
 
-
-cl <- makePSOCKcluster(4)
-
-registerDoParallel(cl)
-
+################################################################################
+# Down Knn
+################################################################################
 modelKnnD <- train(ref ~., data=ucnaDown,
                method = "knn",
                trControl = trainControl(method="cv", number=5),
                tuneGrid = data.frame(k=1:30))
-stopCluster(cl)
 pred <- predict(modelKnnD, newdata=testna)
+cat("\n Natancnost pri izbranih", " spremenljivk je", mean(pred == testna$ref))
+confusionMatrix(pred, testna$ref, positive = "Y")
+#0.9021951 , k=7
+
+
+
+
+
+
+
+
+################################################################################
+# Down SVM
+################################################################################
+modelSvmD <- train(ref ~., data=ucnaDown,
+                  method='svmLinear',
+                  trControl = trainControl(method="cv", number=10),
+                  tuneGrid=data.frame(C=Cji))
+pred <- predict(modelSvmD, newdata = testna)
 cat("\n Natancnost pri izbranih", " spremenljivk je", mean(pred == testna$ref))
 confusionMatrix(pred, testna$ref, positive = "Y")
 
@@ -99,17 +102,15 @@ confusionMatrix(pred, testna$ref, positive = "Y")
 
 
 
-cl <- makePSOCKcluster(4)
 
-registerDoParallel(cl)
-
-#0.9021951 , k=7
+################################################################################
+# Down RF
+################################################################################
 modelRFD <- train(ucnaDown[,-181], ucnaDown$ref, 
                  method='rf', 
                  trControl = trainControl(method = "cv",
                                           classProbs = TRUE,
                                           savePredictions = TRUE))
-stopCluster(cl)
 pred <- predict(modelRFD, newdata=testna)
 cat("\n Natancnost pri izbranih", " spremenljivk je", mean(pred == testna$ref))
 confusionMatrix(pred, testna$ref, positive = "Y")
@@ -121,26 +122,13 @@ confusionMatrix(pred, testna$ref, positive = "Y")
 
 
 
-
-
-
-
-
-
-
-
-
-
-cl <- makePSOCKcluster(4)
-
-registerDoParallel(cl)
-
-
+################################################################################
+# Tree
+################################################################################
 modelTree <- train(ref ~., data=ucna, 
                    method="rpart", 
                    tuneGrid = data.frame(cp=0.0001*c(1:100)),
                    trControl = trainControl(method="cv", number=10))
-stopCluster(cl)
 
 pred <- predict(modelTree, newdata=testna)
 cat("\n Natancnost pri izbranih", mean(pred == testna$ref))
@@ -153,15 +141,12 @@ confusionMatrix(pred, testna$ref, positive = "Y")
 
 
 
-
-cl <- makePSOCKcluster(4)
-
-registerDoParallel(cl)
-
+################################################################################
+# GLM
+################################################################################
 modelGlm <- train(ref~., data=ucna,
                   method = "glm",
                   trControl = trainControl(method="cv", number=10))
-stopCluster(cl)
 
 pred <- predict(modelGlm, newdata=testna)
 cat("\n Natancnost pri izbranih", mean(pred == testna$ref))
@@ -174,17 +159,13 @@ confusionMatrix(pred, testna$ref, positive = "Y")
 
 
 
-
-
-cl <- makePSOCKcluster(4)
-
-registerDoParallel(cl)
-
+################################################################################
+# KNN
+################################################################################
 modelKnn <- train(ref ~., data=ucna,
                   method = "knn",
                   trControl = trainControl(method="cv", number=10),
                   tuneGrid = data.frame(k=1:30))
-stopCluster(cl)
 pred <- predict(modelKnn, newdata=testna)
 cat("\n Natancnost pri izbranih", " spremenljivk je", mean(pred == testna$ref))
 confusionMatrix(pred, testna$ref, positive = "Y")
@@ -194,21 +175,20 @@ confusionMatrix(pred, testna$ref, positive = "Y")
 
 
 
-cl <- makePSOCKcluster(4)
 
-registerDoParallel(cl)
 
+
+################################################################################
+# SVM
+################################################################################
 Cji <- c(0.1, 1, 10)
 modelSvm <- train(ref ~., data=ucna,
                method='svmLinear',
                trControl = trainControl(method="cv", number=10),
                tuneGrid=data.frame(C=Cji))
-
-
 pred <- predict(modelSvm, newdata = testna)
 cat("\n Natancnost pri izbranih", " spremenljivk je", mean(pred == testna$ref))
 confusionMatrix(pred, testna$ref, positive = "Y")
-stopCluster(cl)
 
 
 
@@ -218,40 +198,15 @@ stopCluster(cl)
 
 
 
-
-
-
-
-
-
-
-
-
-
-cl <- makePSOCKcluster(4)
-
-registerDoParallel(cl)
-
-modelSvmD <- train(ref ~., data=ucnaDown,
-                  method='svmLinear',
-                  trControl = trainControl(method="cv", number=10),
-                  tuneGrid=data.frame(C=Cji))
-pred <- predict(modelSvmD, newdata = testna)
-cat("\n Natancnost pri izbranih", " spremenljivk je", mean(pred == testna$ref))
-confusionMatrix(pred, testna$ref, positive = "Y")
-stopCluster(cl)
-
-
-cl <- makePSOCKcluster(4)
-
-registerDoParallel(cl)
+################################################################################
+# RF
+################################################################################
 modelRF <- train(ucnaX, ucnaY, 
                  method='rf', 
                  trControl = trainControl(method = "cv",
                                           classProbs = TRUE,
                                           savePredictions = TRUE))
 
-stopCluster(cl)
 pred <- predict(modelRF, newdata=testna)
 cat("\n Natancnost pri izbranih", " spremenljivk je", mean(pred == testna$ref))
 #0.9585996
@@ -261,10 +216,21 @@ confusionMatrix(pred, testna$ref, positive = "Y")
 
 
 
-cl <- makePSOCKcluster(4)
 
-registerDoParallel(cl)
 
+
+
+################################################################################
+################################################################################
+
+
+
+
+
+
+################################################################################
+# ROC
+################################################################################
 ctrlROC <- trainControl(method='cv', 
                         number=10,
                         savePredictions = T,
@@ -294,8 +260,15 @@ RFmodelR <- train(ucnaX, ucnaY,
                   ntree=100)
 RFmodelR
 
-#########################################
 
+
+
+
+
+
+################################################################################
+# Down ROC
+################################################################################
 glmModelRD <- train(ref~., data=ucnaDown,
                    method = "glm",
                    metric = "ROC",
@@ -320,21 +293,51 @@ RFmodelRD <- train(ucnaDown[,-181], ucnaDown$ref,
                   ntree=100)
 RFmodelRD
 
+
+
+
+
+################################################################################
+################################################################################
+
+
+
+
+
+
+
+################################################################################
+# Optimizaciaj parametrov
+################################################################################
+ucnaInd = createDataPartition(podatki_01$ref, p=0.75, list=FALSE)
+ucna <- podatki_01[ucnaInd,]
+testna <- podatki_01[-ucnaInd,]
+ucnaDown <- downSample(ucna[, -181], ucna$ref, yname="ref")
+
+
+ucnaX = podatki_01[ucnaInd, -181]
+testnaX = podatki_01[-ucnaInd, -181]
+ucnaY = podatki_01[ucnaInd, 181]
+testnaY = podatki_01[-ucnaInd, 181]
+
+
+
+natancnosti <- data.frame(n=1:18, testna=rep(0, 18), ucna=rep(0, 18))
+for(mtry in 1:18){
+  model <- train(ucnaDown[,-181], ucnaDown$ref, method='rf',
+                 tuneGrid = data.frame(mtry= 10*mtry),
+                 trControl = trainControl(method='cv', number=10),
+                 ntree=150)
+  pred <- predict(model, testnaX)
+  natancnosti$testna[mtry] <- mean(pred == testnaY)
+  natancnosti$ucna[mtry] <- model$results$Accuracy
+  cat("\n poskus",mtry*10 ,":" ,natancnosti$testna[mtry], natancnosti$ucna[mtry])
+}
+
+
+
+
 stopCluster(cl)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

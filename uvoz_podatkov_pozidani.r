@@ -2,13 +2,16 @@ require(tidyverse)
 require(reticulate)
 np = import("numpy")
 require(grid)
-
 require(gridExtra)
 require(dplyr)
 require(ggplot2)
-
 require(rpart)
 library(caret)
+
+
+###########################################################################
+# Namenjeno uvoz podatkov za napovedovanje pozidanega obmocja
+###########################################################################
 
 INPUT_FOLDER = file.path(".", "podatki")
 
@@ -53,19 +56,14 @@ podatki$ref[podatki$ref != 8] <- "N"
 podatki$ref[podatki$ref == 8] <- "Y"
 podatki$ref <- as.factor(podatki$ref)
 podatki <- podatki %>% drop_na() # ce je slucajno kaksen NA
-#summary(podatki)
 
-# vzel 10% vseh podatkov iz območja z referenco
+
+# vzel 1% vseh podatkov iz območja z referenco
 indeks_obdelava <- createDataPartition(podatki$ref, p=0.01, list=FALSE)
 
-# podatki na katerih bom zmanšal stevilo napovednih sprem.
 podatki_01 <- podatki[indeks_obdelava,]
 
-#ind_20 <- createDataPartition(podatki$ref, p=0.2, list=FALSE)
-#podatki_20 <- podatki[ind_20,]
-# za rasiriti stevilo pozitivnih
-#ucnaUp = upSample(ucna[, -181], ucna$ref, yname="ref")
-#ucnaDown = downSample(ucna[, -181], ucna$ref, yname="ref")
-
-
+# podatki na katerih sem natreniral koncni model
+ind_90 <- createDataPartition(podatki$ref, p=0.9, list=FALSE)
+podatki_90 <- podatki[ind_90,]
 

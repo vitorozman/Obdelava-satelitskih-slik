@@ -1,4 +1,4 @@
-# potrebno je zagnati uvoz_podatko_gozd.r
+# potrebno je zagnati uvoz_podatkov_gozd.r
 require(tidyverse)
 require(reticulate)
 np = import("numpy")
@@ -11,39 +11,6 @@ library(caret)
 
 
 
-ucnaInd = createDataPartition(podatki_01$ref, p=0.75, list=FALSE)
-ucnaX = podatki_01[ucnaInd, -181]
-testnaX = podatki_01[-ucnaInd, -181]
-ucnaY = podatki_01[ucnaInd, 181]
-testnaY = podatki_01[-ucnaInd, 181]
-
-natancnosti <- data.frame(n=1:18, testna=rep(0, 18), ucna=rep(0, 18))
-#mtry <- 50
-for(mtry in 1:18){
-  model <- train(ucnaX, ucnaY, method='rf',
-                 tuneGrid = data.frame(mtry= 10*mtry),
-                 trControl = trainControl(method='cv', number=10),
-                 ntree=100)
-  pred <- predict(model, testnaX)
-  natancnosti$testna[mtry] <- mean(pred == testnaY)
-  natancnosti$ucna[mtry] <- model$results$Accuracy
-  cat("\n poskus",mtry*10 ,":" ,natancnosti$testna[mtry], natancnosti$ucna[mtry])
-}
-# mtry = 30, ntree = 150
-# mtry = 30, ntree = 100
-
-
-
-
-
-GLMModel <- train(ref~., data=podatki_50,
-                  method = "glm",
-                  trControl = trainControl(method='cv', number=10))
-
-GLMModel
-#0.9778404
-# 50% -> 0.9777945
-
 
 dataX <- podatki_20[, -181]
 dataY <- podatki_20[, 181]
@@ -53,7 +20,7 @@ RFModel <- train(dataX, dataY, method='rf',
                  ntree=100)
 # 10% -> 0.9781113
 
-
+# funkcija ki napove in skrani podatke v .npy
 shrani_podatke <- function(model, typ){
   FEATURE_NAMES = c(
     "B01", "B02", "B03", "B04",
@@ -94,18 +61,5 @@ shrani_podatke <- function(model, typ){
 }
 
 shrani_podatke(RFModel, 2)
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

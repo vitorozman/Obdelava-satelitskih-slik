@@ -2,13 +2,16 @@ require(tidyverse)
 require(reticulate)
 np = import("numpy")
 require(grid)
-
 require(gridExtra)
 require(dplyr)
 require(ggplot2)
-
 require(rpart)
 library(caret)
+
+
+###########################################################################
+# NAmenjeno uvoz podatkov za napovedovanje gozdov
+###########################################################################
 
 INPUT_FOLDER = file.path(".", "podatki")
 
@@ -55,43 +58,22 @@ podatki$ref <- as.factor(podatki$ref)
 podatki <- podatki %>% drop_na() # ce je slucajno kaksen NA
 
 
-# vzel 10% vseh podatkov iz območja z referenco
-#indeks_obdelava <- createDataPartition(podatki$ref, p=0.01, list=FALSE)
+# vzel 1% vseh podatkov iz območja z referenco
+indeks_obdelava <- createDataPartition(podatki$ref, p=0.01, list=FALSE)
 
 # podatki na katerih bom zmanšal stevilo napovednih sprem.
-#podatki_01 <- podatki[indeks_obdelava,]
+podatki_01 <- podatki[indeks_obdelava,]
 
 
-# za napoved bom vzel vec vrstic
-# za napoved bom vzel vec vrstic
+
 #ind_10 <- createDataPartition(podatki$ref, p=0.1, list=FALSE)
 #podatki_10 <- podatki[ind_10,]
 #ind_15 <- createDataPartition(podatki$ref, p=0.15, list=FALSE)
 #podatki_15 <- podatki[ind_15,]
 
+
+
+# za treniranje končnega modela
 ind_20 <- createDataPartition(podatki$ref, p=0.2, list=FALSE)
 podatki_20 <- podatki[ind_20,]
-
-#ind_50 <- createDataPartition(podatki$ref, p=0.5, list=FALSE)
-#podatki_50 <- podatki[ind_50,]
-
-#ind_70 <- createDataPartition(podatki$ref, p=0.7, list=FALSE)
-#podatki_70 <- podatki[ind_70,]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
