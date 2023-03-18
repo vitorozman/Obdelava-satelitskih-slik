@@ -1,0 +1,92 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[slovene]{babel}
+
+\usepackage{hyperref}
+\usepackage{listings} % za naslovnico
+\usepackage{amsthm}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+%\graphicspath{ {./Slike/} }
+\usepackage{subcaption} % za side-by-side slike
+\usepackage[
+top    = 2.cm,
+bottom = 2.cm,
+left   = 2.cm,
+right  = 2.cm]{geometry}
+
+\usepackage{footnote}
+\makesavenoteenv{tabular}
+\title{Seminarska naloga ITAP - 1.del}
+
+\begin{document}
+    
+\author{Vito Rozman}
+\date{\today}
+\maketitle
+
+%\subsection*{Podatki}
+\textbf{Podatki} 
+Prvi korak je bil zmašanje število vrstic, ker pri velikem številu podatkov računalnik ni 
+prenesel računske zahtevnosti. Iz vseh podatkov z referenco sem vzel $1\%$ podatkov, nato sem jih razdelil na 
+učno in testno množico v razmerju $3:1$, torej $75\%$ učna in $25\%$ testna.
+
+\textbf{Metrika}
+Za primerjavo modelov sem izbral metriko natančnosti prečnega 
+preverjanja, natančnost na testni množici in ploščina pod ROC krivuljo (AUC). Pri modelu za 
+napovedovanje pozidanega območja sem primerjal tudi glede občutljivosti in specifičnosti.   
+
+\textbf{Modeli}
+Primerjal sem modele \emph{glm}, \emph{knn}, \emph{svm} in \emph{rf}. Med primerjavo sem optimiziral še parametre pri 
+\emph{knn} (število sosedov) 
+in pri \emph{svm} (kompleksnost). Dobil sem naslednje rezultate:
+
+\begin{center}
+    \begin{tabular}{||c| c c c c||} 
+     \hline
+     Model - gozd & GLM & KNN & SVM & RF\\ [0.5ex] 
+    \hline\hline
+    Natančnost - testna	& 0.9739 & 0.9717 &	0.9772 & 0.9770\\
+
+     \hline
+     Natačnost - cv	&0.9737 & 0.9715 & 0.9756 & 0.9764\\
+     \hline
+     Ploščina pod ROC (AUC)	& 0.9955	& 0.9903 & 0.9957 & 0.9963 \\ 
+     \hline
+    \end{tabular}
+\end{center}
+\begin{center}
+    \begin{tabular}{||c| c c c c||} 
+        \hline
+        Model - pozidano & GLM & KNN & SVM & RF\\ [0.5ex] 
+       \hline\hline
+       Natančnost - testna	& 0.9242&	0.9016&	0.9362&	0.9377\\
+   
+        \hline
+        Natačnost - cv	&0.9195	&0.9204 & 0.9271&	0.9355\\
+        \hline
+        Ploščina pod ROC (AUC)	& 0.9651 & 0.9235 &	0.9702 & 0.9793\\ 
+        \hline
+        Občutljivost	& 0.8863 & 0.9722 &	0.9218 & 0.9262\\ 
+        \hline
+        Specifičnost	& 0.9327 & 0.9213 &	0.9353 & 0.9483\\ 
+        \hline
+       \end{tabular}
+\end{center}
+
+\textbf{Najboljši model:}
+Kot vidno zgoraj se je v obeh primerih najbolje izkazal \emph{rf} (naključni gozdovi), saj je pri najpomembnejših metrikah dobil najboljše 
+rezultate. Po izbiri modela sem optimiziral parametra mtry in ntree. Edina slaba lastnost \emph{rf} se je pokazala 
+pri časovni zahtevnosti in težavi pri velikem številu vrstic. V primeru da bi optimiziral še časovno
+komponento, bi izbral \emph{glm} ali pa \emph{svm}.
+
+Za napovedovanje pozidanega območja, sem moral podatke malo prilagoditi, ker bi se lahko pojavila težava
+pri prekomernem napovedovanju negativnih izidov, saj je razmerje pozidanega (pozitivni) proti nepozidanemu 
+(negativni) precej manjša kot pri podatkih za gozdove. Uporabil sem metodo  podvzorčenja.
+
+Končni model za napoved gozd sem natreniral na $20\%$ vseh podatkov z referenco (ker mi računalnik ni 
+dopuščal več), za napoved pozidanega območje pa sem vzel $90\%$ vseh podatkov z referenco na katerih sem uporabil 
+podvzorčenje.
+
+
+\end{document}
