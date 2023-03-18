@@ -2,6 +2,13 @@
 .Rhistory
 .Rapp.history
 
+*.aux
+*.tdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+
 # Session Data files
 .RData
 
